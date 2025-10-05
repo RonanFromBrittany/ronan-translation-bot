@@ -1,20 +1,35 @@
-require('dotenv').config(); // si tu utilises CommonJS (cas actuel)
-
+require('dotenv').config(); // charge .env si présent
 
 const express = require('express');
-const { ActivityHandler, CloudAdapter,
+const {
+  ActivityHandler,
+  CloudAdapter,
   ConfigurationServiceClientCredentialFactory,
-  createBotFrameworkAuthenticationFromConfiguration } = require('botbuilder');
+  createBotFrameworkAuthenticationFromConfiguration
+} = require('botbuilder');
 
+// --- AUTHENTIFICATION ---
 const creds = new ConfigurationServiceClientCredentialFactory({
   MicrosoftAppId: process.env.MicrosoftAppId,
   MicrosoftAppPassword: process.env.MicrosoftAppPassword,
-  MicrosoftAppType: 'MultiTenant',
-  MicrosoftAppTenantId: process.env.MicrosoftAppTenantId
+  MicrosoftAppType: 'MultiTenant' // Multi-tenant = pas de TenantId ici
 });
+
 const bfa = createBotFrameworkAuthenticationFromConfiguration(null, creds);
 const adapter = new CloudAdapter(bfa);
 
+// gestion d’erreur propre
+adapter.onTurnError = async (context, error) => {
+  console.error('onTurnError:', error);
+  await context.sendActivity('Oups, une erreur est survenue.');
+};
+
+// vérification de présence des variables d’environnement
+if (!process.env.MicrosoftAppId || !process.env.MicrosoftAppPassword) {
+  console.warn('⚠️  Variables manquantes: MicrosoftAppId ou MicrosoftAppPassword');
+}
+
+// --- BOT ---
 class EchoBot extends ActivityHandler {
   constructor() {
     super();
@@ -26,8 +41,10 @@ class EchoBot extends ActivityHandler {
     });
   }
 }
+
 const bot = new EchoBot();
 
+// --- SERVEUR EXPRESS ---
 const app = express();
 app.use(express.json());
 
@@ -36,4 +53,4 @@ app.post('/api/messages', (req, res) => {
 });
 
 const port = process.env.PORT || 3978;
-app.listen(port, () => console.log(`Bot up on http://localhost:${port}/api/messages`));
+app.listen(port, () => console.log(`✅ Bot up on http://localhost:${port}/api/messages`));
