@@ -16,7 +16,7 @@ const settings = new Map(Object.entries({
   MicrosoftAppPassword: process.env.MicrosoftAppPassword,
   // Europe (régional) — garde vides si tu es en Global
   ChannelService: process.env.ChannelService || 'https://europe.api.botframework.com',
-  BotOpenIdMetadata: process.env.BotOpenIdMetadata || 'https://europe.botframework.com/v1/.well-known/openidconfiguration'
+  BotOpenIdMetadata: process.env.BotOpenIdMetadata || 'https://europe.botframework.com/v1/.well-known/openidconfiguration',
   ToChannelFromBotLoginUrl: process.env.ToChannelFromBotLoginUrl || 'https://login.microsoftonline.com/botframework.com',
   ToChannelFromBotOAuthScope: process.env.ToChannelFromBotOAuthScope || 'https://europe.api.botframework.com/.default'
 }));
@@ -40,7 +40,7 @@ const credentialsFactory = new ConfigurationServiceClientCredentialFactory({
 });
 
 const botFrameworkAuth = createBotFrameworkAuthenticationFromConfiguration(
-  settings,               // <- plus "null", un vrai config avec .get
+  settings, // <- plus "null", un vrai config avec .get
   credentialsFactory
 );
 
