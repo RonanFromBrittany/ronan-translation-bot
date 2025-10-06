@@ -17,6 +17,8 @@ const settings = new Map(Object.entries({
   // Europe (régional) — garde vides si tu es en Global
   ChannelService: process.env.ChannelService || 'https://europe.api.botframework.com',
   BotOpenIdMetadata: process.env.BotOpenIdMetadata || 'https://europe.botframework.com/v1/.well-known/openidconfiguration'
+  ToChannelFromBotLoginUrl: process.env.ToChannelFromBotLoginUrl || 'https://login.microsoftonline.com/botframework.com',
+  ToChannelFromBotOAuthScope: process.env.ToChannelFromBotOAuthScope || 'https://europe.api.botframework.com/.default'
 }));
 
 // Diagnostics sans balancer le secret
