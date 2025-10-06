@@ -9,7 +9,7 @@ const {
   createBotFrameworkAuthenticationFromConfiguration
 } = require('botbuilder');
 
-// --------- Configuration lisible par le SDK (avec .get) ----------
+// --------- Configuration lisible par le SDK (Map avec .get) ----------
 const settings = new Map(Object.entries({
   MicrosoftAppType: process.env.MicrosoftAppType || 'MultiTenant',
   MicrosoftAppId: process.env.MicrosoftAppId,
@@ -18,11 +18,13 @@ const settings = new Map(Object.entries({
   // Europe (régional)
   ChannelService: process.env.ChannelService || 'https://europe.api.botframework.com',
   BotOpenIdMetadata: process.env.BotOpenIdMetadata || 'https://europe.botframework.com/v1/.well-known/openidconfiguration',
+
+  // IMPORTANT: pour Direct Line et WebChat la portée doit être GLOBALE:
   ToChannelFromBotLoginUrl: process.env.ToChannelFromBotLoginUrl || 'https://login.microsoftonline.com/botframework.com',
-  ToChannelFromBotOAuthScope: process.env.ToChannelFromBotOAuthScope || 'https://europe.api.botframework.com/.default'
+  ToChannelFromBotOAuthScope: process.env.ToChannelFromBotOAuthScope || 'https://api.botframework.com/.default'
 }));
 
-// --------- Diagnostics lisibles ----------
+// --------- Diagnostics au démarrage ----------
 console.log('=== BOOT DIAGNOSTICS ===');
 console.log('AppId:', settings.get('MicrosoftAppId') || '(manquant)');
 console.log('AppType:', settings.get('MicrosoftAppType'));
@@ -37,11 +39,11 @@ const credentialsFactory = new ConfigurationServiceClientCredentialFactory({
   MicrosoftAppId: settings.get('MicrosoftAppId'),
   MicrosoftAppPassword: settings.get('MicrosoftAppPassword'),
   MicrosoftAppType: settings.get('MicrosoftAppType')
-  // ⚠️ Ne pas ajouter MicrosoftAppTenantId pour MultiTenant
+  // ⚠️ ne pas mettre MicrosoftAppTenantId en MultiTenant
 });
 
 const botFrameworkAuth = createBotFrameworkAuthenticationFromConfiguration(
-  settings, // <- configuration complète avec .get()
+  settings,
   credentialsFactory
 );
 
@@ -85,6 +87,34 @@ app.get('/healthz', (_req, res) => {
   });
 });
 
+// --------- Diag OAuth: prouve que le serveur obtient le jeton attendu ---------
+app.get('/diag/oauth', async (_req, res) => {
+  try {
+    const { ConfidentialClientApplication } = require('@azure/msal-node');
+    const msal = new ConfidentialClientApplication({
+      auth: {
+        clientId: settings.get('MicrosoftAppId'),
+        clientSecret: settings.get('MicrosoftAppPassword'),
+        authority: settings.get('ToChannelFromBotLoginUrl')
+      }
+    });
+    const scope = settings.get('ToChannelFromBotOAuthScope') || 'https://api.botframework.com/.default';
+    const result = await msal.acquireTokenByClientCredential({ scopes: [scope] });
+
+    if (!result?.accessToken) {
+      return res.status(500).json({ ok: false, error: 'no_token', detail: result });
+    }
+    res.json({
+      ok: true,
+      scope,
+      expiresOn: result.expiresOn?.toISOString?.() || null,
+      tokenStartsWith: result.accessToken.slice(0, 16)
+    });
+  } catch (err) {
+    res.status(401).json({ ok: false, error: 'oauth_failed', message: String(err?.message || err) });
+  }
+});
+
 // Log TOUTES les activités reçues (diagnostic)
 adapter.use({
   onTurn: async (context, next) => {
@@ -114,7 +144,7 @@ app.get('/api/messages', (_req, res) => {
   res.status(405).type('text/plain').send('Use POST /api/messages');
 });
 
-const port = process.env.PORT || 3978;
+const port = process.env.PORT || 8080;
 app.listen(port, () => {
   console.log(`🚀 Bot up on http://localhost:${port}/api/messages`);
 });
