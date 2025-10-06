@@ -14,14 +14,15 @@ const settings = new Map(Object.entries({
   MicrosoftAppType: process.env.MicrosoftAppType || 'MultiTenant',
   MicrosoftAppId: process.env.MicrosoftAppId,
   MicrosoftAppPassword: process.env.MicrosoftAppPassword,
-  // Europe (régional) — garde vides si tu es en Global
+
+  // Europe (régional)
   ChannelService: process.env.ChannelService || 'https://europe.api.botframework.com',
   BotOpenIdMetadata: process.env.BotOpenIdMetadata || 'https://europe.botframework.com/v1/.well-known/openidconfiguration',
   ToChannelFromBotLoginUrl: process.env.ToChannelFromBotLoginUrl || 'https://login.microsoftonline.com/botframework.com',
   ToChannelFromBotOAuthScope: process.env.ToChannelFromBotOAuthScope || 'https://europe.api.botframework.com/.default'
 }));
 
-// Diagnostics sans balancer le secret
+// --------- Diagnostics lisibles ----------
 console.log('=== BOOT DIAGNOSTICS ===');
 console.log('AppId:', settings.get('MicrosoftAppId') || '(manquant)');
 console.log('AppType:', settings.get('MicrosoftAppType'));
@@ -36,20 +37,20 @@ const credentialsFactory = new ConfigurationServiceClientCredentialFactory({
   MicrosoftAppId: settings.get('MicrosoftAppId'),
   MicrosoftAppPassword: settings.get('MicrosoftAppPassword'),
   MicrosoftAppType: settings.get('MicrosoftAppType')
-  // Surtout pas de MicrosoftAppTenantId en MultiTenant
+  // ⚠️ Ne pas ajouter MicrosoftAppTenantId pour MultiTenant
 });
 
 const botFrameworkAuth = createBotFrameworkAuthenticationFromConfiguration(
-  settings, // <- plus "null", un vrai config avec .get
+  settings, // <- configuration complète avec .get()
   credentialsFactory
 );
 
 const adapter = new CloudAdapter(botFrameworkAuth);
 
-// Gestion d’erreur lisible
+// --------- Gestion d’erreur ----------
 adapter.onTurnError = async (context, error) => {
   console.error('onTurnError:', error);
-  await context.sendActivity('Une erreur est survenue côté serveur.');
+  await context.sendActivity('❌ Une erreur est survenue côté serveur.');
 };
 
 // --------- Bot écho minimal ----------
@@ -57,21 +58,21 @@ class EchoBot extends ActivityHandler {
   constructor() {
     super();
     this.onMembersAdded(async (ctx) => {
-      await ctx.sendActivity('Bot prêt. Dis "hello".');
+      await ctx.sendActivity('👋 Bot prêt. Dis "hello".');
     });
     this.onMessage(async (ctx) => {
-      await ctx.sendActivity(`Tu as dit: "${ctx.activity.text}"`);
+      await ctx.sendActivity(`🪞 Tu as dit: "${ctx.activity.text}"`);
     });
   }
 }
 const bot = new EchoBot();
 
-// --------- Serveur HTTP ----------
+// --------- Serveur Express ----------
 const app = express();
 app.use(express.json());
 
-// Healthchecks
-app.get('/', (_req, res) => res.type('text/plain').send('OK: root reachable'));
+// Healthchecks utiles
+app.get('/', (_req, res) => res.type('text/plain').send('✅ Root reachable'));
 app.get('/ping', (_req, res) => res.type('text/plain').send('pong'));
 app.get('/healthz', (_req, res) => {
   res.json({
@@ -84,7 +85,7 @@ app.get('/healthz', (_req, res) => {
   });
 });
 
-// Log TOUTES les activités reçues (sans secrets)
+// Log TOUTES les activités reçues (diagnostic)
 adapter.use({
   onTurn: async (context, next) => {
     try {
@@ -103,17 +104,17 @@ adapter.use({
   }
 });
 
-// Endpoint Bot Framework
+// Endpoint principal du Bot Framework
 app.post('/api/messages', (req, res) => {
   adapter.process(req, res, (context) => bot.run(context));
 });
 
-// Pour les curieux qui testent au navigateur
+// Empêcher GET /api/messages
 app.get('/api/messages', (_req, res) => {
   res.status(405).type('text/plain').send('Use POST /api/messages');
 });
 
 const port = process.env.PORT || 3978;
 app.listen(port, () => {
-  console.log(`✅ Bot up on http://localhost:${port}/api/messages`);
+  console.log(`🚀 Bot up on http://localhost:${port}/api/messages`);
 });
