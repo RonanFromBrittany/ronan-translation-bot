@@ -82,6 +82,25 @@ app.get('/healthz', (_req, res) => {
   });
 });
 
+// Log TOUTES les activités reçues (sans secrets)
+adapter.use({
+  onTurn: async (context, next) => {
+    try {
+      console.log('---- ACTIVITY IN ----');
+      console.log('type:', context.activity?.type);
+      console.log('channelId:', context.activity?.channelId);
+      console.log('serviceUrl:', context.activity?.serviceUrl);
+      console.log('from:', context.activity?.from?.id, context.activity?.from?.role);
+      console.log('recipient:', context.activity?.recipient?.id, context.activity?.recipient?.role);
+      console.log('text:', context.activity?.text);
+      console.log('raw activity:', JSON.stringify(context.activity));
+    } catch (e) {
+      console.error('log activity failed:', e);
+    }
+    await next();
+  }
+});
+
 // Endpoint Bot Framework
 app.post('/api/messages', (req, res) => {
   adapter.process(req, res, (context) => bot.run(context));
